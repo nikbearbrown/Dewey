@@ -62,6 +62,8 @@ Brand voice: Academic, clear, direct. Informed by research, accessible to practi
 26. `/admin/dashboard/blog/import` — Import posts (Substack ZIP or blog export ZIP)
 27. `/admin/dashboard/tools` — Manage tools (link and artifact types)
 28. `/admin/dashboard/substack` — Manage Substack sections & import ZIP archives
+29. `/admin/dashboard/videos` — Manage video embeds (YouTube)
+30. `/dewey` — "What is Dewey?" video hub (pinned + paginated videos, tag filtering)
 
 ### Placeholder pages (noindex, inherited from previous project)
 - `/classes` — Coming Soon placeholder
@@ -172,6 +174,42 @@ CREATE POLICY "service_role_tools" ON tools FOR ALL USING (true) WITH CHECK (tru
 ### Public pages
 - `/tools` — Card grid of all tools. Artifact tools show "Artifact" badge and link to `/tools/[slug]`. Link tools open in new tab.
 - `/tools/[slug]` — Full-page artifact embed with title bar (name, description, "Back to Tools" link, optional "Open External" button). Iframe takes full viewport height minus header.
+
+## Videos system — DONE
+
+### Database (`videos` table in Neon PostgreSQL)
+```sql
+CREATE TABLE IF NOT EXISTS videos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  description TEXT,
+  youtube_id TEXT NOT NULL,
+  tags TEXT[],
+  pinned BOOLEAN DEFAULT false,
+  published BOOLEAN DEFAULT true,
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### Public pages
+- `/dewey` — "What is Dewey?" page with pinned video(s) at top, paginated video list with search and tag filtering (5 per page)
+- Tags: engineering, theory, features, how to, coming soon
+
+### API routes
+- `GET /api/videos` — public: paginated video list with optional tag filter
+- `GET/POST /api/admin/videos` — admin: list all / create video
+- `PUT/DELETE /api/admin/videos/[id]` — admin: update / delete video
+
+### Admin UI (`/app/admin/dashboard/videos/page.tsx`)
+- Video list with pinned/published badges, YouTube thumbnail preview
+- New/Edit dialog with title, YouTube ID, description, tags (comma-separated + quick-add), pinned/published toggles
+- Delete with confirmation
+
+### Components
+- `app/dewey/VideosBrowser.tsx` — Client component: search, tag filter, pinned section, paginated video list
+- `app/dewey/page.tsx` — Server component: fetches initial videos from Neon
 
 ## Notes system — DONE
 
@@ -614,6 +652,9 @@ app/
   tools/page.tsx                    # Tools directory (merges filesystem artifacts + DB link tools)
   tools/ToolsBrowser.tsx            # Client component: search + tag filter + card grid
   tools/[slug]/page.tsx             # Tool page (filesystem first, DB fallback)
+  dewey/
+    page.tsx                        # "What is Dewey?" videos page (server component)
+    VideosBrowser.tsx               # Client component: search + tag filter + paginated video list
   dev/
     page.tsx                        # Dev docs browser (server component, reads filesystem)
     DevBrowser.tsx                  # Client component: search + tag filter + card grid
@@ -646,6 +687,11 @@ app/
   api/blog/
     route.ts                        # GET published posts (public)
     [slug]/route.ts                 # GET single published post (public)
+  api/videos/
+    route.ts                        # GET published videos (public, paginated, tag filter)
+  api/admin/videos/
+    route.ts                        # GET/POST videos (admin)
+    [id]/route.ts                   # PUT/DELETE video (admin)
   api/admin/tools/
     route.ts                        # GET/POST tools
     [id]/route.ts                   # PUT/DELETE tool
